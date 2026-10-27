@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b1550">
+<title>うちゅうせん設計所</title>
+<style>
+  :root {
+    --night: #1b1550;      /* 夜空 */
+    --night-2: #2a2370;    /* 少し明るい夜空 */
+    --beam: #ffd23f;       /* トラクタービーム */
+    --milk: #fff8ec;       /* 牛のミルク */
+    --ink: #2a2140;        /* 文字・線 */
+    --paper: #e6efff;      /* 設計図用紙 */
+    --grid: #b9cdf5;       /* 方眼 */
+    --player: #ff5a5a;     /* プレイヤー色（JSで上書き） */
+    --font: "Hiragino Maru Gothic ProN", "ヒラギノ丸ゴ ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    font-family: var(--font);
+    color: var(--milk);
+    background-color: var(--night);
+    /* 星（ネットがなくても表示できるようにCSSだけで描く） */
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,248,236,.9), transparent),
+      radial-gradient(1px 1px at 28% 72%, rgba(255,248,236,.7), transparent),
+      radial-gradient(2px 2px at 44% 30%, rgba(255,210,63,.8), transparent),
+      radial-gradient(1px 1px at 63% 84%, rgba(255,248,236,.6), transparent),
+      radial-gradient(1.5px 1.5px at 78% 12%, rgba(255,248,236,.8), transparent),
+      radial-gradient(1px 1px at 90% 58%, rgba(255,248,236,.7), transparent),
+      radial-gradient(1px 1px at 6% 90%, rgba(255,248,236,.5), transparent),
+      radial-gradient(1.5px 1.5px at 52% 52%, rgba(255,248,236,.4), transparent),
+      radial-gradient(ellipse at 50% 120%, var(--night-2), var(--night) 70%);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+
+  button {
+    font-family: var(--font);
+    color: var(--ink);
+    border: none;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  button:focus-visible {
+    outline: 4px solid var(--beam);
+    outline-offset: 3px;
+  }
+
+  .hidden { display: none !important; }
+
+  /* ===== 共通ヘッダー ===== */
+  .app {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) 24px max(16px, env(safe-area-inset-bottom));
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 56px;
+  }
+
+  .badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--player);
+    color: var(--ink);
+    font-size: 26px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 4px rgba(255,248,236,.15);
+  }
+
+  .header-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .player-name-display {
+    font-size: 14px;
+    color: var(--beam);
+    line-height: 1.2;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: normal;
+    letter-spacing: .04em;
+  }
+
+  #net {
+    margin-left: auto;
+    font-size: 15px;
+    color: var(--beam);
+  }
+
+  .screen {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+  }
+
+  /* ===== 名前入力画面 ===== */
+  #nameScreen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .name-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: min(100%, 400px);
+  }
+
+  .name-form label {
+    font-size: 24px;
+    color: var(--milk);
+  }
+
+  .name-input {
+    width: 100%;
+    height: 64px;
+    border-radius: 16px;
+    border: 3px solid var(--beam);
+    background: var(--night-2);
+    color: var(--milk);
+    font-family: var(--font);
+    font-size: 28px;
+    text-align: center;
+    outline: none;
+    touch-action: auto;
+  }
+
+  .name-input:focus {
+    box-shadow: 0 0 0 4px rgba(255,210,63,.4);
+  }
+
+  #nameScreen .go {
+    width: 100%;
+  }
+
+  /* ===== お絵描き画面 ===== */
+  #drawScreen {
+    gap: 24px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sheet {
+    position: relative;
+    width: min(calc(100vh - 140px), calc(100vw - 340px));
+    width: min(calc(100dvh - 140px), calc(100vw - 340px));
+    aspect-ratio: 1;
+    border-radius: 20px;
+    padding: 10px;
+    background: var(--milk);
+    box-shadow: 0 12px 0 rgba(0,0,0,.25);
+  }
+
+  #canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    touch-action: none;
+    /* 方眼（見た目だけ。送る絵には入らない） */
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      linear-gradient(rgba(185,205,245,.45) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(185,205,245,.45) 1px, transparent 1px);
+    background-size: 12.5% 12.5%, 12.5% 12.5%, 2.5% 2.5%, 2.5% 2.5%;
+  }
+
+  .sheet-note {
+    position: absolute;
+    left: 24px;
+    bottom: 18px;
+    font-size: 14px;
+    color: #7f93c4;
+    pointer-events: none;
+  }
+
+  .tools {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .tool-group h2 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: normal;
+    color: rgba(255,248,236,.7);
+  }
+
+  .colors {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .color {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 4px solid transparent;
+    box-shadow: inset 0 -5px 0 rgba(0,0,0,.18);
+    transition: transform .12s;
+  }
+  .color.selected {
+    border-color: var(--milk);
+    transform: scale(1.08);
+  }
+
+  .sizes {
+    display: flex;
+    gap: 10px;
+  }
+
+  .size, .tool {
+    flex: 1;
+    height: 60px;
+    border-radius: 14px;
+    background: var(--night-2);
+    color: var(--milk);
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 2px rgba(255,248,236,.15);
+  }
+  .size.selected, .tool.selected {
+    background: var(--milk);
+    color: var(--ink);
+  }
+  .size i {
+    display: block;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .tool-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .tool.warn {
+    background: #5a2a55;
+  }
+
+  .go {
+    margin-top: auto;
+    height: 84px;
+    border-radius: 42px;
+    background: var(--beam);
+    font-size: 30px;
+    letter-spacing: .08em;
+    box-shadow: 0 8px 0 #b8901a;
+  }
+  .go:active {
+    transform: translateY(6px);
+    box-shadow: 0 2px 0 #b8901a;
+  }
+
+  #hint {
+    min-height: 1.4em;
+    font-size: 17px;
+    color: var(--beam);
+    text-align: center;
+  }
+
+  /* ===== 診断画面 ===== */
+  #scanScreen {
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+  }
+
+  .scan-frame {
+    position: relative;
+    width: min(calc(100vh - 180px), 46vw);
+    width: min(calc(100dvh - 180px), 46vw);
+    aspect-ratio: 1;
+    border-radius: 20px;
+    overflow: hidden;
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 12.5% 12.5%;
+    box-shadow: 0 0 0 10px var(--milk);
+  }
+
+  .scan-frame img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 上から下へ動くビーム */
+  .scan-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 28%;
+    top: -28%;
+    background: linear-gradient(to bottom, transparent, rgba(255,210,63,.55) 85%, var(--beam));
+    mix-blend-mode: multiply;
+  }
+  .scanning .scan-line {
+    animation: scan 0.8s ease-in-out 3;
+  }
+  @keyframes scan {
+    from { top: -28%; }
+    to   { top: 100%; }
+  }
+
+  .report {
+    width: 400px;
+  }
+
+  .report .label {
+    font-size: 20px;
+    color: rgba(255,248,236,.75);
+    margin: 0;
+  }
+
+  .type-name {
+    margin: 6px 0 4px;
+    font-size: 56px;
+    font-weight: normal;
+    line-height: 1.15;
+    color: var(--beam);
+  }
+
+  .type-comment {
+    margin: 0 0 28px;
+    font-size: 22px;
+  }
+
+  .stat {
+    display: grid;
+    grid-template-columns: 90px 1fr 48px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 20px;
+  }
+  .stat .bar {
+    height: 22px;
+    border-radius: 11px;
+    background: rgba(255,248,236,.15);
+    overflow: hidden;
+  }
+  .stat .fill {
+    height: 100%;
+    width: 0;
+    border-radius: 11px;
+    transition: width .9s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .stat .num { text-align: right; }
+
+  .report-actions {
+    display: flex;
+    gap: 14px;
+    margin-top: 30px;
+  }
+  .report-actions .tool {
+    flex: 0 0 150px;
+    height: 84px;
+    border-radius: 42px;
+  }
+  .report-actions .go {
+    flex: 1;
+    margin-top: 0;
+  }
+
+  #scanWait .type-name { color: var(--milk); }
+
+  /* ===== 準備中・プレイ・結果 ===== */
+  .center {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .ship-thumb {
+    width: 220px;
+    height: 220px;
+    object-fit: contain;
+  }
+  #waitScreen .ship-thumb {
+    animation: hover 1.6s ease-in-out infinite alternate;
+  }
+  @keyframes hover {
+    from { transform: translateY(-10px); }
+    to   { transform: translateY(10px); }
+  }
+
+  .big-text {
+    margin: 20px 0 0;
+    font-size: 40px;
+    font-weight: normal;
+  }
+
+  #playScreen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0 20px;
+  }
+
+  .hud {
+    width: min(720px, 100%);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .hud img {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+    background: rgba(255,248,236,.08);
+    border-radius: 16px;
+  }
+  .hud-main { flex: 1; }
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 26px;
+    margin-bottom: 10px;
+  }
+  .hud-row b {
+    font-weight: normal;
+    font-size: 40px;
+    color: var(--beam);
+  }
+  .timebar {
+    height: 18px;
+    border-radius: 9px;
+    background: rgba(255,248,236,.15);
+    overflow: hidden;
+  }
+  #timeFill {
+    height: 100%;
+    width: 100%;
+    background: var(--beam);
+    border-radius: 9px;
+    transition: width 1s linear;
+  }
+
+  #pad {
+    --pad: min(420px, 60vh, 80vw);
+    width: var(--pad);
+    height: var(--pad);
+    border-radius: 50%;
+    position: relative;
+    touch-action: none;
+    background:
+      radial-gradient(circle, rgba(255,248,236,.06) 0 55%, transparent 56%),
+      var(--night-2);
+    box-shadow: inset 0 0 0 4px rgba(255,248,236,.2);
+  }
+  #knob {
+    position: absolute;
+    width: 36%;
+    height: 36%;
+    left: 32%;
+    top: 32%;
+    border-radius: 50%;
+    background: var(--player);
+    box-shadow: inset 0 -8px 0 rgba(0,0,0,.2), 0 0 30px var(--player);
+    pointer-events: none;
+  }
+  .pad-hint {
+    font-size: 20px;
+    color: rgba(255,248,236,.7);
+    margin: 0;
+  }
+
+  .result-score {
+    font-size: 120px;
+    line-height: 1;
+    color: var(--beam);
+    margin: 10px 0 6px;
+  }
+  .result-score small { font-size: 40px; }
+  .result-type {
+    font-size: 24px;
+    margin: 0 0 30px;
+  }
+  #againBtn {
+    width: 360px;
+    margin-top: 0;
+  }
+
+  /* ===== 縦向きのとき ===== */
+  @media (orientation: portrait) {
+    #drawScreen {
+      flex-direction: column;
+      gap: 18px;
+    }
+    .sheet {
+      width: min(calc(100vw - 48px), calc(100vh - 420px));
+      width: min(calc(100vw - 48px), calc(100dvh - 420px));
+    }
+    .tools {
+      width: min(calc(100vw - 48px), 640px);
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .tools .tool-group { flex: 1 1 45%; }
+    .colors { grid-template-columns: repeat(9, 1fr); }
+    .go { flex: 1 1 100%; }
+    #scanScreen { flex-direction: column; gap: 30px; }
+    .scan-frame { width: min(60vw, 46vh); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scanning .scan-line { animation-duration: .2s; }
+    #waitScreen .ship-thumb { animation: none; }
+    .stat .fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="badge" id="badge">1</div>
+    <div class="header-info">
+      <div class="player-name-display" id="playerNameDisplay"></div>
+      <h1 id="title">なまえを おしえてね</h1>
+    </div>
+    <div id="net">つないでいます…</div>
+  </header>
+
+  <!-- ===== 名前入力 ===== -->
+  <main class="screen" id="nameScreen">
+    <div class="name-form">
+      <label for="nameInput">なまえを 入力してね</label>
+      <input type="text" id="nameInput" class="name-input" maxlength="10" placeholder="プレイヤー1" autocomplete="off">
+      <button class="go" id="nameSubmitBtn">つぎへ →</button>
+    </div>
+  </main>
+
+  <!-- ===== お絵描き ===== -->
+  <main class="screen hidden" id="drawScreen">
+    <div class="sheet">
+      <canvas id="canvas" width="512" height="512"></canvas>
+      <div class="sheet-note" id="drawNote">うちゅうせんを かこう</div>
+    </div>
+
+    <div class="tools">
+      <div class="tool-group">
+        <h2>いろ</h2>
+        <div class="colors" id="colors"></div>
+      </div>
+
+      <div class="tool-group">
+        <h2>ふとさ</h2>
+        <div class="sizes">
+          <button class="size" data-size="7" aria-label="ほそい"><i style="width:8px;height:8px"></i></button>
+          <button class="size selected" data-size="16" aria-label="ふつう"><i style="width:16px;height:16px"></i></button>
+          <button class="size" data-size="32" aria-label="ふとい"><i style="width:28px;height:28px"></i></button>
+        </div>
+      </div>
+
+      <div class="tool-group">
+        <div class="tool-row">
+          <button class="tool" id="eraserBtn">けしゴム</button>
+          <button class="tool" id="undoBtn">もどる</button>
+          <button class="tool warn" id="clearBtn">ぜんぶけす</button>
+        </div>
+      </div>
+
+      <div id="hint"></div>
+      <button class="go" id="scanBtn">しんだんへ →</button>
+    </div>
+  </main>
+
+  <!-- ===== 診断 ===== -->
+  <main class="screen hidden" id="scanScreen">
+    <div class="scan-frame" id="scanFrame">
+      <img id="scanImg" alt="かいた うちゅうせん">
+      <div class="scan-line"></div>
+    </div>
+
+    <div class="report">
+      <div id="scanWait">
+        <p class="label">うちゅうせんを しらべています</p>
+        <p class="type-name">しんだんちゅう…</p>
+      </div>
+
+      <div id="scanResult" class="hidden">
+        <p class="label">きみの うちゅうせんは</p>
+        <p class="type-name" id="typeName"></p>
+        <p class="type-comment" id="typeComment"></p>
+
+        <div class="stat">
+          <span>スピード</span>
+          <div class="bar"><div class="fill" id="fillSpeed" style="background:#ff9a2e"></div></div>
+          <span class="num" id="numSpeed">0</span>
+        </div>
+        <div class="stat">
+          <span>ビーム</span>
+          <div class="bar"><div class="fill" id="fillBeam" style="background:#4cc9f0"></div></div>
+          <span class="num" id="numBeam">0</span>
+        </div>
+        <div class="stat">
+          <span>パワー</span>
+          <div class="bar"><div class="fill" id="fillPower" style="background:#ff6fae"></div></div>
+          <span class="num" id="numPower">0</span>
+        </div>
+
+        <div class="report-actions">
+          <button class="tool" id="redrawBtn">かきなおす</button>
+          <button class="go" id="launchBtn">しゅつげき！</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===== 準備中 ===== -->
+  <main class="screen center hidden" id="waitScreen">
+    <img class="ship-thumb" id="waitImg" alt="">
+    <p class="big-text">テレビを みてね！</p>
+  </main>
+
+  <!-- ===== プレイ ===== -->
+  <main class="screen hidden" id="playScreen">
+    <div class="hud">
+      <img id="playImg" alt="">
+      <div class="hud-main">
+        <div class="hud-row">
+          <span>のこり <b id="timeText">0</b> びょう</span>
+          <span>つかまえた <b id="scoreText">0</b> ひき</span>
+        </div>
+        <div class="timebar"><div id="timeFill"></div></div>
+      </div>
+    </div>
+    <div id="pad"><div id="knob"></div></div>
+    <p class="pad-hint">まるを ゆびで うごかそう</p>
+  </main>
+
+  <!-- ===== 結果 ===== -->
+  <main class="screen center hidden" id="resultScreen">
+    <img class="ship-thumb" id="resultImg" alt="">
+    <p class="big-text">おつかれさま！</p>
+    <div class="result-score"><span id="resultScore">0</span><small>ひき</small></div>
+    <p class="result-type" id="resultType"></p>
+    <button class="go" id="againBtn">もういちど あそぶ</button>
+  </main>
+
+</div>
+
+<script>
+// ============================================================
+// 設定
+// ============================================================
+const PLAYER_COLORS = ["#ff5a5a", "#4fe36b", "#5a9bff", "#ffcc1a"];
+
+// 色と、その色がどのステータスに効くか
+const PALETTE = [
+  { hex: "#f0453a", group: "speed", name: "あか" },
+  { hex: "#ff9a2e", group: "speed", name: "オレンジ" },
+  { hex: "#ffd23f", group: "speed", name: "きいろ" },
+  { hex: "#3fbf5f", group: "beam",  name: "みどり" },
+  { hex: "#4cc9f0", group: "beam",  name: "みずいろ" },
+  { hex: "#3a6df0", group: "beam",  name: "あお" },
+  { hex: "#2a2140", group: "power", name: "くろ" },
+  { hex: "#7b4fd6", group: "power", name: "むらさき" },
+  { hex: "#ff6fae", group: "power", name: "ピンク" }
+];
+
+const TYPES = {
+  speed:   { name: "スピードタイプ", comment: "びゅーんと はやく とべる！" },
+  beam:    { name: "ビームタイプ",   comment: "ひろい ビームで まとめて つかまえる！" },
+  power:   { name: "パワータイプ",   comment: "すいこむ ちからが とても つよい！" },
+  balance: { name: "バランスタイプ", comment: "なんでも できる オールラウンダー！" }
+};
+
+// ============================================================
+// プレイヤー番号（URLの ?p=1 〜 ?p=4）と名前
+// ============================================================
+const params = new URLSearchParams(location.search);
+const player = Math.min(4, Math.max(1, parseInt(params.get("p") || "1")));
+const defaultPlayerName = "プレイヤー" + player;
+let playerName = defaultPlayerName;
+
+document.documentElement.style.setProperty("--player", PLAYER_COLORS[player - 1]);
+document.getElementById("badge").textContent = player;
+document.getElementById("nameInput").placeholder = defaultPlayerName;
+
+const netEl = document.getElementById("net");
+const titleEl = document.getElementById("title");
+const playerNameDisplayEl = document.getElementById("playerNameDisplay");
+
+// ============================================================
+// 画面の切り替え
+// ============================================================
+const screens = {
+  name:   { el: document.getElementById("nameScreen"),   title: "なまえを おしえてね" },
+  draw:   { el: document.getElementById("drawScreen"),   title: "うちゅうせんを かこう" },
+  scan:   { el: document.getElementById("scanScreen"),   title: "うちゅうせん しんだん" },
+  wait:   { el: document.getElementById("waitScreen"),   title: "しゅつげき じゅんび" },
+  play:   { el: document.getElementById("playScreen"),   title: "どうぶつを つかまえよう" },
+  result: { el: document.getElementById("resultScreen"), title: "けっか" }
+};
+let currentScreen = "name";
+
+function showScreen(name) {
+  for (const key in screens) {
+    screens[key].el.classList.toggle("hidden", key !== name);
+  }
+  titleEl.textContent = screens[name].title;
+  currentScreen = name;
+}
+
+// ============================================================
+// 名前設定
+// ============================================================
+document.getElementById("nameSubmitBtn").addEventListener("click", () => {
+  const inputVal = document.getElementById("nameInput").value.trim();
+  playerName = inputVal || defaultPlayerName;
+  playerNameDisplayEl.textContent = playerName;
+  send({ type: "hello", role: "ipad", player: player, name: playerName });
+  showScreen("draw");
+});
+
+// ============================================================
+// サーバーへの接続
+// ============================================================
+let ws;
+function connect() {
+  ws = new WebSocket("ws://" + location.host);
+  ws.onopen = () => {
+    netEl.textContent = "";
+    send({ type: "hello", role: "ipad", player: player, name: playerName });
+    if (currentScreen === "wait" || currentScreen === "play") {
+      stopCountdown();
+      showScreen("draw");
+    }
+  };
+  ws.onclose = () => {
+    netEl.textContent = "つなぎなおしています…";
+    setTimeout(connect, 2000);
+  };
+  ws.onmessage = (event) => {
+    let msg;
+    try {
+      msg = JSON.parse(event.data);
+    } catch (e) {
+      return;
+    }
+    handleMessage(msg);
+  };
+}
+
+function send(obj) {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify(obj));
+    return true;
+  }
+  return false;
+}
+
+// ============================================================
+// お絵描き
+// ============================================================
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+ctx.lineCap = "round";
+ctx.lineJoin = "round";
+
+let penColor = PALETTE[6].hex; // 最初は「くろ」
+let penSize = 16;
+let erasing = false;
+let activePointer = null;
+let last = null;
+const undoStack = [];
+
+// 色ボタンを作る
+const colorsEl = document.getElementById("colors");
+PALETTE.forEach((c, i) => {
+  const b = document.createElement("button");
+  b.className = "color" + (i === 6 ? " selected" : "");
+  b.style.background = c.hex;
+  b.setAttribute("aria-label", c.name);
+  b.addEventListener("click", () => {
+    penColor = c.hex;
+    setEraser(false);
+    document.querySelectorAll(".color").forEach((x) => x.classList.remove("selected"));
+    b.classList.add("selected");
+  });
+  colorsEl.appendChild(b);
+});
+
+document.querySelectorAll(".size").forEach((b) => {
+  b.addEventListener("click", () => {
+    penSize = parseInt(b.dataset.size);
+    document.querySelectorAll(".size").forEach((x) => x.classList.remove("selected"));
+    b.classList.add("selected");
+  });
+});
+
+const eraserBtn = document.getElementById("eraserBtn");
+function setEraser(on) {
+  erasing = on;
+  eraserBtn.classList.toggle("selected", on);
+}
+eraserBtn.addEventListener("click", () => setEraser(!erasing));
+
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * canvas.width / r.width,
+    y: (e.clientY - r.top) * canvas.height / r.height
+  };
+}
+
+function strokeTo(p) {
+  ctx.globalCompositeOperation = erasing ? "destination-out" : "source-over";
+  ctx.strokeStyle = penColor;
+  ctx.lineWidth = erasing ? penSize * 1.8 : penSize;
+  ctx.beginPath();
+  ctx.moveTo(last.x, last.y);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  last = p;
+}
+
+canvas.addEventListener("pointerdown", (e) => {
+  if (activePointer !== null) return; // 2本目の指は無視
+  activePointer = e.pointerId;
+  canvas.setPointerCapture(e.pointerId);
+
+  undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  if (undoStack.length > 20) undoStack.shift();
+
+  last = getPos(e);
+  strokeTo({ x: last.x + 0.01, y: last.y });
+  hintEl.textContent = "";
+});
+
+canvas.addEventListener("pointermove", (e) => {
+  if (e.pointerId !== activePointer) return;
+  const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of events) {
+    strokeTo(getPos(ev));
+  }
+});
+
+function endStroke(e) {
+  if (e.pointerId !== activePointer) return;
+  activePointer = null;
+  last = null;
+}
+canvas.addEventListener("pointerup", endStroke);
+canvas.addEventListener("pointercancel", endStroke);
+
+document.getElementById("undoBtn").addEventListener("click", () => {
+  const prev = undoStack.pop();
+  if (prev) ctx.putImageData(prev, 0, 0);
+});
+
+// 「ぜんぶけす」は2回押しで消す
+const clearBtn = document.getElementById("clearBtn");
+let clearArmed = false;
+let clearTimer = null;
+clearBtn.addEventListener("click", () => {
+  if (!clearArmed) {
+    clearArmed = true;
+    clearBtn.textContent = "ほんとに？";
+    clearTimer = setTimeout(resetClearBtn, 2500);
+    return;
+  }
+  undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  resetClearBtn();
+});
+function resetClearBtn() {
+  clearTimeout(clearTimer);
+  clearArmed = false;
+  clearBtn.textContent = "ぜんぶけす";
+}
+
+function resetCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  undoStack.length = 0;
+  setEraser(false);
+}
+
+// 透明でない部分を囲む四角形（なければ null）
+function alphaBounds(c, threshold) {
+  const W = c.width, H = c.height;
+  const d = c.getContext("2d").getImageData(0, 0, W, H).data;
+  let minX = W, minY = H, maxX = -1, maxY = -1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (d[(y * W + x) * 4 + 3] > threshold) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return null;
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+// 宇宙船がちょうど真ん中に来るようにずらす
+function centered(src) {
+  const b = alphaBounds(src, 8);
+  const out = document.createElement("canvas");
+  out.width = src.width;
+  out.height = src.height;
+  if (b) {
+    out.getContext("2d").drawImage(
+      src,
+      Math.round(src.width / 2 - (b.x + b.w / 2)),
+      Math.round(src.height / 2 - (b.y + b.h / 2))
+    );
+  }
+  return out;
+}
+
+// ============================================================
+// 診断（描いた絵からステータスを計算する）
+// ============================================================
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+const PALETTE_RGB = PALETTE.map((c) => ({ rgb: hexToRgb(c.hex), group: c.group }));
+
+function analyze(src) {
+  const W = src.width;
+  const H = src.height;
+  const data = src.getContext("2d").getImageData(0, 0, W, H).data;
+  const STEP = 2;
+
+  let count = 0;
+  let minX = W, minY = H, maxX = 0, maxY = 0;
+  const groups = { speed: 0, beam: 0, power: 0 };
+
+  for (let y = 0; y < H; y += STEP) {
+    for (let x = 0; x < W; x += STEP) {
+      const i = (y * W + x) * 4;
+      if (data[i + 3] < 128) continue;
+      count++;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+
+      let best = null;
+      let bestDist = Infinity;
+      for (const p of PALETTE_RGB) {
+        const dr = data[i] - p.rgb[0];
+        const dg = data[i + 1] - p.rgb[1];
+        const db = data[i + 2] - p.rgb[2];
+        const d = dr * dr + dg * dg + db * db;
+        if (d < bestDist) { bestDist = d; best = p; }
+      }
+      groups[best.group]++;
+    }
+  }
+
+  if (count < 120) return null;
+
+  const bw = maxX - minX + STEP;
+  const bh = maxY - minY + STEP;
+  const size = Math.max(bw, bh) / W;
+  const density = Math.min(1, (count * STEP * STEP) / (bw * bh) * 2.5);
+
+  const rSpeed = groups.speed / count;
+  const rBeam = groups.beam / count;
+  const rPower = groups.power / count;
+
+  const clamp = (v) => Math.round(Math.min(100, Math.max(10, v)));
+  const stats = {
+    speed: clamp(30 + 50 * rSpeed + 20 * (1 - size)),
+    beam:  clamp(30 + 50 * rBeam + 20 * size),
+    power: clamp(30 + 50 * rPower + 20 * density)
+  };
+
+  const sorted = Object.entries(stats).sort((a, b) => b[1] - a[1]);
+  const shipType = (sorted[0][1] - sorted[2][1] < 12) ? "balance" : sorted[0][0];
+
+  return { speed: stats.speed, beam: stats.beam, power: stats.power, shipType: shipType };
+}
+
+// ============================================================
+// 「しんだんへ」→ 診断 → 出撃
+// ============================================================
+const hintEl = document.getElementById("hint");
+const scanFrame = document.getElementById("scanFrame");
+const scanWait = document.getElementById("scanWait");
+const scanResult = document.getElementById("scanResult");
+let shipImage = "";
+let shipStats = null;
+let scanTimer = null;
+
+document.getElementById("scanBtn").addEventListener("click", () => {
+  const b = alphaBounds(canvas, 8);
+  if (!b) {
+    hintEl.textContent = "まだ なにも かいてないよ！";
+    return;
+  }
+  const result = analyze(canvas);
+  if (!result) {
+    hintEl.textContent = "えが ちいさすぎるよ！";
+    return;
+  }
+  shipStats = result;
+  shipImage = centered(canvas).toDataURL("image/png");
+  ["scanImg", "waitImg", "playImg", "resultImg"].forEach((id) => {
+    document.getElementById(id).src = shipImage;
+  });
+  startScan();
+});
+
+function startScan() {
+  showScreen("scan");
+  scanWait.classList.remove("hidden");
+  scanResult.classList.add("hidden");
+  ["fillSpeed", "fillBeam", "fillPower"].forEach((id) => {
+    document.getElementById(id).style.width = "0";
+  });
+
+  scanFrame.classList.remove("scanning");
+  void scanFrame.offsetWidth;
+  scanFrame.classList.add("scanning");
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  clearTimeout(scanTimer);
+  scanTimer = setTimeout(showReport, reduce ? 300 : 2500);
+}
+
+function showReport() {
+  const t = TYPES[shipStats.shipType];
+  document.getElementById("typeName").textContent = t.name;
+  document.getElementById("typeComment").textContent = t.comment;
+  document.getElementById("numSpeed").textContent = shipStats.speed;
+  document.getElementById("numBeam").textContent = shipStats.beam;
+  document.getElementById("numPower").textContent = shipStats.power;
+  document.getElementById("resultType").textContent = t.name;
+
+  scanWait.classList.add("hidden");
+  scanResult.classList.remove("hidden");
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.getElementById("fillSpeed").style.width = shipStats.speed + "%";
+      document.getElementById("fillBeam").style.width = shipStats.beam + "%";
+      document.getElementById("fillPower").style.width = shipStats.power + "%";
+    });
+  });
+}
+
+document.getElementById("redrawBtn").addEventListener("click", () => {
+  clearTimeout(scanTimer);
+  showScreen("draw");
+});
+
+let waitTimer = null;
+document.getElementById("launchBtn").addEventListener("click", () => {
+  const ok = send({
+    type: "image",
+    player: player,
+    name: playerName,
+    image: shipImage,
+    speed: shipStats.speed,
+    beam: shipStats.beam,
+    power: shipStats.power,
+    shipType: shipStats.shipType
+  });
+  if (!ok) {
+    netEl.textContent = "つながっていません。すこし まってね";
+    return;
+  }
+  showScreen("wait");
+  clearTimeout(waitTimer);
+  waitTimer = setTimeout(() => {
+    netEl.textContent = "ゲームがみつかりません。スタッフをよんでね";
+    showScreen("scan");
+  }, 5000);
+});
+
+// ============================================================
+// ゲームからの合図
+// ============================================================
+const timeText = document.getElementById("timeText");
+const timeFill = document.getElementById("timeFill");
+const scoreText = document.getElementById("scoreText");
+let timeTotal = 1;
+let timeLeft = 0;
+let countdown = null;
+let resultTimer = null;
+
+function stopCountdown() {
+  if (countdown) {
+    clearInterval(countdown);
+    countdown = null;
+  }
+}
+
+function updateTime() {
+  timeText.textContent = timeLeft;
+  timeFill.style.width = (timeLeft / timeTotal * 100) + "%";
+}
+
+function handleMessage(msg) {
+  if (msg.type === "start") {
+    clearTimeout(waitTimer);
+    netEl.textContent = "";
+    timeTotal = Math.max(1, msg.time);
+    timeLeft = msg.time;
+    updateTime();
+    scoreText.textContent = 0;
+    showScreen("play");
+    stopCountdown();
+    countdown = setInterval(() => {
+      timeLeft = Math.max(0, timeLeft - 1);
+      updateTime();
+    }, 1000);
+  } else if (msg.type === "score") {
+    scoreText.textContent = msg.score;
+  } else if (msg.type === "end") {
+    stopCountdown();
+    padRelease();
+    document.getElementById("resultScore").textContent = msg.score;
+    showScreen("result");
+    clearTimeout(resultTimer);
+    resultTimer = setTimeout(backToDraw, 20000);
+  }
+}
+
+function backToDraw() {
+  clearTimeout(resultTimer);
+  resetCanvas();
+  showScreen("draw");
+}
+document.getElementById("againBtn").addEventListener("click", backToDraw);
+
+// ============================================================
+// スティック操作
+// ============================================================
+const pad = document.getElementById("pad");
+const knob = document.getElementById("knob");
+let padPointer = null;
+let moveX = 0;
+let moveY = 0;
+
+function setKnob(dx, dy) {
+  knob.style.left = (32 + dx * 32) + "%";
+  knob.style.top = (32 + dy * 32) + "%";
+}
+
+function padMove(e) {
+  const r = pad.getBoundingClientRect();
+  let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+  let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+  const len = Math.hypot(dx, dy);
+  if (len > 1) { dx /= len; dy /= len; }
+  moveX = dx;
+  moveY = -dy;
+  setKnob(dx, dy);
+}
+
+function padRelease() {
+  padPointer = null;
+  moveX = 0;
+  moveY = 0;
+  setKnob(0, 0);
+}
+
+pad.addEventListener("pointerdown", (e) => {
+  if (padPointer !== null) return;
+  padPointer = e.pointerId;
+  pad.setPointerCapture(e.pointerId);
+  padMove(e);
+});
+pad.addEventListener("pointermove", (e) => {
+  if (e.pointerId === padPointer) padMove(e);
+});
+pad.addEventListener("pointerup", (e) => {
+  if (e.pointerId === padPointer) padRelease();
+});
+pad.addEventListener("pointercancel", (e) => {
+  if (e.pointerId === padPointer) padRelease();
+});
+
+setInterval(() => {
+  if (currentScreen === "play") {
+    send({ type: "move", player: player, x: moveX, y: moveY });
+  }
+}, 50);
+
+connect();
+</script>
+</body>
+</html>
